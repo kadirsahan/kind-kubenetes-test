@@ -125,3 +125,10 @@ dd3e7029818a   kindest/node:v1.27.3   "/usr/local/bin/entr…"   15 minutes ago 
 
 ➜  kind-k8s curl I http://localhost:30000
 
+➜  kind-k8s git:(main) ✗ docker ps
+CONTAINER ID   IMAGE                  COMMAND                  CREATED          STATUS          PORTS                                                                           NAMES
+c627f291e022   kindest/node:v1.27.3   "/usr/local/bin/entr…"   41 seconds ago   Up 36 seconds                                                                                   ksk-worker
+63abd0b453f2   kindest/node:v1.27.3   "/usr/local/bin/entr…"   41 seconds ago   Up 36 seconds   0.0.0.0:20000->20000/tcp, 0.0.0.0:30000->30000/tcp, 127.0.0.1:53433->6443/tcp   ksk-control-plane
+fe29f98ae803   kindest/node:v1.27.3   "/usr/local/bin/entr…"   41 seconds ago   Up 36 seconds                                                                                   ksk-worker2
+47d8108a74c3   postgres:14-alpine     "docker-entrypoint.s…"   8 days ago       Up 8 days       0.0.0.0:5432->5432/tcp                                                          postgres
+➜  kind-k8s git:(main) ✗
