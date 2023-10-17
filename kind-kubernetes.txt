@@ -1,0 +1,127 @@
+➜  brew install kind
+
+➜  kind create cluster --name ksk --config kind-example-config.yaml
+
+➜  kind delete cluster --name=ksk
+
+# three node (two workers) cluster config
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+- role: worker
+- role: worker
+
+➜  kind-k8s kind get clusters
+ksk
+
+➜  kind-k8s kubectl cluster-info --context kind-ksk
+Kubernetes control plane is running at https://127.0.0.1:63207
+CoreDNS is running at https://127.0.0.1:63207/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+
+➜  kind-k8s kubectl get nodes
+NAME                STATUS   ROLES           AGE     VERSION
+ksk-control-plane   Ready    control-plane   5m5s    v1.27.3
+ksk-worker          Ready    <none>          4m41s   v1.27.3
+ksk-worker2         Ready    <none>          4m38s   v1.27.3
+
+➜  kind-k8s docker ps
+CONTAINER ID   IMAGE                  COMMAND                  CREATED         STATUS         PORTS                       NAMES
+42e58948b14b   kindest/node:v1.27.3   "/usr/local/bin/entr…"   9 minutes ago   Up 8 minutes                               ksk-worker
+b044e5511385   kindest/node:v1.27.3   "/usr/local/bin/entr…"   9 minutes ago   Up 8 minutes   127.0.0.1:63207->6443/tcp   ksk-control-plane
+7eed6db99a50   kindest/node:v1.27.3   "/usr/local/bin/entr…"   9 minutes ago   Up 8 minutes                               ksk-worker2
+
+➜  cat $HOME/.kube/config
+
+➜  deployment yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 1 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+
+➜  kubectl expose deployment nginx-deployment --type=NodePort --name=my-nginx --target-port=3000 --port=80
+
+➜  kubectl expose pod nginx --type=NodePort --target-port=32167 --port=80
+
+➜  kubectl expose pod nginx --type=NodePort --port=80 --target-port=30000 --node-port=30000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  selector:
+    app: nginx
+  type: NodePort
+  ports:
+    - name: http
+      nodePort: 32167
+      targetPort: 80
+      port: 80
+--
+
+➜  kind-k8s docker exec -it ksk-control-plane bash
+root@ksk-control-plane:/#
+
+➜  root@ksk-control-plane:/# kubectl get nodes
+NAME                STATUS   ROLES           AGE    VERSION
+ksk-control-plane   Ready    control-plane   131m   v1.27.3
+ksk-worker          Ready    <none>          131m   v1.27.3
+ksk-worker2         Ready    <none>          131m   v1.27.3
+
+➜  root@ksk-control-plane:/# kubectl get pods
+NAME                                READY   STATUS    RESTARTS   AGE
+nginx-deployment-6b78fc8767-8zt46   1/1     Running   0          4m59s
+
+➜  root@ksk-control-plane:/# kubectl get pods -o wide
+NAME                                READY   STATUS    RESTARTS   AGE    IP           NODE          NOMINATED NODE   READINESS GATES
+nginx-deployment-6b78fc8767-8zt46   1/1     Running   0          5m2s   10.244.2.2   ksk-worker2   <none>           <none>
+
+➜  root@ksk-control-plane:/# kubectl get svc -o wide
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE     SELECTOR
+kubernetes   ClusterIP   10.96.0.1       <none>        443/TCP        132m    <none>
+my-nginx     NodePort    10.96.233.175   <none>        80:31436/TCP   3m59s   app=nginx
+
+➜  root@ksk-control-plane:/# telnet 172.23.0.3 31436
+Trying 172.23.0.3...
+Connected to 172.23.0.3.
+Escape character is '^]'.
+^]
+
+➜  root@ksk-control-plane:/# kubectl get nodes -o wide
+NAME                STATUS   ROLES           AGE    VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                         KERNEL-VERSION     CONTAINER-RUNTIME
+ksk-control-plane   Ready    control-plane   132m   v1.27.3   172.23.0.2    <none>        Debian GNU/Linux 11 (bullseye)   5.15.49-linuxkit   containerd://1.7.1
+ksk-worker          Ready    <none>          131m   v1.27.3   172.23.0.3    <none>        Debian GNU/Linux 11 (bullseye)   5.15.49-linuxkit   containerd://1.7.1
+ksk-worker2         Ready    <none>          131m   v1.27.3   172.23.0.4    <none>        Debian GNU/Linux 11 (bullseye)   5.15.49-linuxkit   containerd://1.7.1
+
+➜  docker run -it --rm --network kind busybox
+
+➜  kind-k8s docker ps
+CONTAINER ID   IMAGE                  COMMAND                  CREATED          STATUS          PORTS                                                 NAMES
+b01f0742ffe7   kindest/node:v1.27.3   "/usr/local/bin/entr…"   15 minutes ago   Up 15 minutes                                                         ksk-worker
+e7bfaf89331c   kindest/node:v1.27.3   "/usr/local/bin/entr…"   15 minutes ago   Up 15 minutes   0.0.0.0:30000->30000/tcp, 127.0.0.1:52935->6443/tcp   ksk-control-plane
+dd3e7029818a   kindest/node:v1.27.3   "/usr/local/bin/entr…"   15 minutes ago   Up 15 minutes                                                         ksk-worker2
+47d8108a74c3   postgres:14-alpine     "docker-entrypoint.s…"   8 days ago       Up 8 days       0.0.0.0:5432->5432/tcp                                postgres
+
+
+➜  kind-k8s curl I http://localhost:30000
+
